@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <title>生日快乐 | 专属邀请函</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome 图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 高德地图API（无需修改） -->
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=您的高德地图API密钥"></script>
+
+  <!-- 自定义配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            birthday: {
+              pink: '#FF6B8B',
+              yellow: '#FFD166',
+              blue: '#06D6A0',
+              purple: '#7928CA',
+              orange: '#FF8C42'
+            },
+          },
+          fontFamily: {
+            happy: ['Comic Sans MS', 'cursive', 'sans-serif'],
+          },
+          animation: {
+            'float': 'float 3s ease-in-out infinite',
+            'bounce-slow': 'bounce 4s ease-in-out infinite',
+            'spin-slow': 'spin 8s linear infinite',
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        },
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .text-shadow {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      .bg-gradient-happy {
+        background: linear-gradient(135deg, #FF6B8B 0%, #FFD166 50%, #06D6A0 100%);
+      }
+      .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        opacity: 0;
+        animation: confetti-fall 5s linear infinite;
+      }
+      @keyframes confetti-fall {
+        0% {
+          transform: translateY(-100vh) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(100vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      .animate-number {
+        counter-reset: num 0;
+        animation: count 2s forwards ease-out;
+      }
+      @keyframes count {
+        to { counter-reset: num var(--num); }
+      }
+      .animate-number::after {
+        content: counter(num);
+      }
+      .music-control {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      /* 新增：重复数据样式标记 */
+      .duplicate-item {
+        background-color: #fef2f2;
+        opacity: 0.7;
+      }
+      /* 移动端优化样式 */
+      .touch-scale {
+        touch-action: manipulation;
+      }
+      .mobile-padding {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .mobile-btn {
+        min-height: 48px;
+        min-width: 48px;
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gray-50 font-happy overflow-x-hidden mobile-padding">
+<!-- 背景音乐控制按钮 - 移动端优化 -->
+<div id="music-controls" class="fixed bottom-6 right-6 z-50 hidden">
+  <button id="music-toggle" class="music-control w-16 h-16 rounded-full bg-birthday-pink/80 text-white shadow-lg
+              flex items-center justify-center hover:bg-birthday-pink transition-all transform hover:scale-110 touch-scale mobile-btn">
+    <i id="music-icon" class="fa fa-music text-2xl"></i>
+  </button>
+  <div class="music-control absolute bottom-20 right-0 bg-white/80 rounded-lg p-3 shadow-lg hidden" id="volume-slider-container">
+    <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.7"
+           class="w-32 accent-birthday-pink">
+  </div>
+</div>
+
+<!-- 身份选择页面 - 移动端优化 -->
+<div id="identity-page" class="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-happy">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 transform transition-all hover:scale-105 touch-scale">
+    <h1 class="text-[clamp(1.5rem,6vw,2.5rem)] font-bold text-birthday-pink text-center mb-8">
+      🎂 生日邀请函 🎂
+    </h1>
+
+    <div class="grid grid-cols-1 gap-6">
+      <button id="guest-btn" class="py-5 px-6 rounded-xl bg-birthday-yellow text-white text-xl font-semibold
+                  shadow-md hover:bg-birthday-orange transition-all transform hover:scale-105
+                  flex items-center justify-center gap-3 touch-scale mobile-btn">
+        <i class="fa fa-user text-xl"></i> 我是受邀客人
+      </button>
+
+      <button id="host-btn" class="py-5 px-6 rounded-xl bg-birthday-purple text-white text-xl font-semibold
+                  shadow-md hover:bg-birthday-blue transition-all transform hover:scale-105
+                  flex items-center justify-center gap-3 touch-scale mobile-btn">
+        <i class="fa fa-key text-xl"></i> 我是邀请人
+      </button>
+    </div>
+
+    <!-- 邀请人密码验证 - 移动端优化 -->
+    <div id="password-form" class="mt-8 hidden">
+      <label class="block text-gray-700 text-lg font-medium mb-2">请输入邀请人密码：</label>
+      <div class="flex gap-3">
+        <input type="password" id="host-password"
+               class="flex-1 px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-birthday-pink text-lg"
+               placeholder="输入密码">
+        <button id="verify-password" class="px-6 py-3 bg-birthday-pink text-white rounded-lg hover:bg-birthday-purple transition-all touch-scale mobile-btn">
+          验证
+        </button>
+      </div>
+      <p id="password-error" class="text-red-500 text-sm mt-2 hidden">密码错误，请重试！</p>
+    </div>
+  </div>
+  <div class="absolute bottom-6 text-white text-sm opacity-70">
+    🎉 生日快乐 🎉
+  </div>
+</div>
+
+<!-- 邀请函页面 - 移动端优化 -->
+<div id="invitation-page" class="min-h-screen p-4 hidden">
+  <div id="confetti-container" class="fixed top-0 left-0 w-full h-full pointer-events-none z-0"></div>
+
+  <div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden relative z-10 touch-scale">
+    <!-- 邀请函头部 -->
+    <div class="bg-gradient-to-r from-birthday-pink to-birthday-yellow p-6 text-center text-white">
+      <h2 class="text-[clamp(1.3rem,5vw,2rem)] font-bold text-shadow mb-2 animate-bounce-slow">
+        亲爱的朋友：
+      </h2>
+      <p class="text-[clamp(1rem,4vw,1.5rem)] font-semibold">
+        诚挚邀请您参加 <span class="text-birthday-purple animate-pulse-slow">苏雨辰</span> 的生日派对！
+      </p>
+    </div>
+
+    <!-- 邀请函内容 -->
+    <div class="p-5 space-y-6">
+      <!-- 生日主角信息 -->
+      <div class="text-center">
+        <div class="inline-block p-4 bg-birthday-yellow/10 rounded-full mb-4 animate-float">
+          <i class="fa fa-birthday-cake text-5xl text-birthday-pink"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-birthday-pink">寿星：苏雨辰</h3>
+        <p class="text-gray-600 mt-1">10岁生日快乐 🎉</p>
+      </div>
+
+      <!-- 邀请信息 - 移动端优化 -->
+      <div class="bg-gray-50 rounded-xl p-4 border-l-4 border-birthday-yellow">
+        <div class="flex items-start gap-3 mb-4">
+          <i class="fa fa-calendar text-birthday-pink text-xl mt-1"></i>
+          <div>
+            <h4 class="font-bold text-lg text-gray-800">派对时间</h4>
+            <p class="text-gray-600">2025年12月21日 晚上18:00</p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3 mb-4">
+          <i class="fa fa-map-marker text-birthday-pink text-xl mt-1"></i>
+          <div>
+            <h4 class="font-bold text-lg text-gray-800">派对地点</h4>
+            <p class="text-gray-600">幸福路88号 欢乐餐厅 3楼VIP包间</p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <i class="fa fa-heart text-birthday-pink text-xl mt-1"></i>
+          <div>
+            <h4 class="font-bold text-lg text-gray-800">邀请寄语</h4>
+            <p class="text-gray-600">期待与您共度美好时光，分享生日喜悦！</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 地图区域 - 移动端优化 -->
+      <div class="rounded-xl overflow-hidden shadow-md h-56 border border-gray-200">
+        <div id="map-container" class="w-full h-full"></div>
+      </div>
+
+      <!-- 客人信息提交表单 - 移动端优化 -->
+      <div class="bg-birthday-blue/10 rounded-xl p-4">
+        <h3 class="text-xl font-bold text-birthday-blue mb-4 text-center">
+          📝 出席信息确认
+        </h3>
+
+        <form id="guest-form" class="space-y-5">
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">您的姓名：</label>
+            <input type="text" id="guest-name" required
+                   class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-birthday-blue text-lg"
+                   placeholder="请输入您的姓名">
+          </div>
+
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">出席人数：</label>
+            <div class="flex items-center gap-4">
+              <button type="button" id="decrease-count"
+                      class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-all touch-scale mobile-btn">
+                <i class="fa fa-minus text-lg"></i>
+              </button>
+
+              <span id="attendee-count" class="text-2xl font-bold text-birthday-pink min-w-[50px] text-center">1</span>
+
+              <button type="button" id="increase-count"
+                      class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-all touch-scale mobile-btn">
+                <i class="fa fa-plus text-lg"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-4 bg-birthday-pink text-white rounded-lg text-lg font-semibold
+                      hover:bg-birthday-purple transition-all transform hover:scale-105 shadow-md touch-scale mobile-btn">
+            🎈 确认提交出席信息
+          </button>
+        </form>
+
+        <!-- 提交成功提示 - 移动端优化 -->
+        <div id="submit-success" class="mt-4 p-4 bg-green-100 text-green-700 rounded-lg text-center hidden">
+          <i class="fa fa-check-circle text-xl"></i> 提交成功！<br>
+          请将以下链接发送给邀请人：<br>
+          <div class="mt-2 p-3 bg-white rounded text-sm break-all select-all" id="share-url"></div>
+          <button onclick="copyShareUrl()" class="mt-3 px-4 py-2 bg-birthday-pink text-white rounded text-sm touch-scale mobile-btn">
+            复制链接
+          </button>
+        </div>
+
+        <!-- 重复提交提示 - 移动端优化 -->
+        <div id="submit-duplicate" class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg text-center hidden">
+          <i class="fa fa-exclamation-triangle text-xl"></i> 提交失败！<br>
+          该姓名已提交过，请勿重复提交
+        </div>
+
+        <!-- 提交加载提示 - 移动端优化 -->
+        <div id="submit-loading" class="mt-4 p-4 bg-gray-100 text-gray-700 rounded-lg text-center hidden">
+          <i class="fa fa-spinner fa-spin text-xl mb-2"></i> 正在提交信息，请稍候...
+        </div>
+      </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div class="bg-gray-100 p-4 text-center text-gray-600">
+      <p>🎁 诚邀参加 🎁</p>
+    </div>
+  </div>
+</div>
+
+<!-- 邀请人汇总页面 - 移动端优化 -->
+<div id="summary-page" class="min-h-screen p-4 hidden">
+  <div class="max-w-md mx-auto">
+    <header class="bg-birthday-pink text-white p-4 rounded-xl mb-6 shadow-md">
+      <h2 class="text-xl font-bold flex items-center gap-2">
+        <i class="fa fa-list-alt"></i> 客人出席信息汇总
+      </h2>
+      <p class="text-white/80 mt-1 text-sm">实时更新的客人出席数据</p>
+    </header>
+
+    <!-- 刷新按钮 - 移动端优化 -->
+    <button id="refresh-data" class="mb-6 py-3 px-6 bg-birthday-blue text-white rounded-lg hover:bg-birthday-purple transition-all touch-scale mobile-btn w-full">
+      <i class="fa fa-refresh"></i> 刷新最新数据
+    </button>
+
+    <!-- 统计概览 - 移动端优化 -->
+    <div class="grid grid-cols-1 gap-4 mb-6">
+      <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-birthday-yellow">
+        <h3 class="text-gray-600 text-lg">有效客人数量</h3>
+        <p id="total-guests" class="text-4xl font-bold text-birthday-pink animate-number mt-2" style="--num: 0"></p>
+      </div>
+
+      <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-birthday-blue">
+        <h3 class="text-gray-600 text-lg">有效出席人数</h3>
+        <p id="total-attendees" class="text-4xl font-bold text-birthday-purple animate-number mt-2" style="--num: 0"></p>
+      </div>
+
+      <!-- 重复数据统计 - 移动端优化 -->
+      <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-red-400 mb-6">
+        <h3 class="text-gray-600 text-lg">重复提交数量</h3>
+        <p id="total-duplicates" class="text-4xl font-bold text-red-500 animate-number mt-2" style="--num: 0"></p>
+      </div>
+    </div>
+
+    <!-- 客人列表 - 移动端优化 -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+      <div class="p-4 bg-gray-50 border-b border-gray-200">
+        <h3 class="font-bold text-lg text-gray-800">客人详情列表</h3>
+        <p class="text-xs text-gray-500 mt-1">(标红为重复提交，不计入总数)</p>
+      </div>
+
+      <div id="guests-list" class="divide-y divide-gray-100 max-h-[50vh] overflow-y-auto">
+        <div class="p-6 text-center text-gray-500">
+          正在加载客人信息...
+        </div>
+      </div>
+    </div>
+
+    <!-- 返回按钮 - 移动端优化 -->
+    <button id="back-to-identity" class="mt-2 py-4 px-6 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all touch-scale mobile-btn w-full">
+      <i class="fa fa-arrow-left"></i> 返回身份选择
+    </button>
+  </div>
+</div>
+
+<!-- 背景音乐元素 -->
+<audio id="birthday-music" loop preload="auto">
+  <source src="http://music.163.com/song/media/outer/url?id=1325436814.mp3" type="audio/mpeg">
+  您的浏览器不支持音频播放
+</audio>
+
+<script>
+  // ===================== 配置项 =====================
+  const HOST_PASSWORD = "888888"; // 邀请人密码
+  const BIRTHDAY_PERSON = "苏雨辰"; // 寿星姓名
+  const PARTY_TIME = "2025年12月21日 晚上18:00"; // 派对时间
+  const PARTY_ADDRESS = "幸福路88号 欢乐餐厅 3楼VIP包间"; // 派对地址
+  const MAP_COORDINATES = [116.397428, 39.90923]; // 地图坐标 [经度, 纬度]
+  // ===================== 全局变量 =====================
+  let attendeeCount = 1;
+  let isMusicPlaying = false;
+  let musicVolume = 0.7;
+  let guestData = []; // 本地存储客人数据
+
+  // ===================== DOM元素 =====================
+  const identityPage = document.getElementById('identity-page');
+  const invitationPage = document.getElementById('invitation-page');
+  const summaryPage = document.getElementById('summary-page');
+  const passwordForm = document.getElementById('password-form');
+  const guestsList = document.getElementById('guests-list');
+  const musicElement = document.getElementById('birthday-music');
+  const musicControls = document.getElementById('music-controls');
+  const musicToggle = document.getElementById('music-toggle');
+  const musicIcon = document.getElementById('music-icon');
+  const volumeSliderContainer = document.getElementById('volume-slider-container');
+  const volumeSlider = document.getElementById('volume-slider');
+  const submitSuccess = document.getElementById('submit-success');
+  const submitDuplicate = document.getElementById('submit-duplicate');
+  const submitLoading = document.getElementById('submit-loading');
+  const shareUrlEl = document.getElementById('share-url');
+  const totalDuplicatesEl = document.getElementById('total-duplicates');
+
+  // ===================== 兼容中文的Base64编解码函数 =====================
+  function utf8ToBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  function base64ToUtf8(str) {
+    return decodeURIComponent(escape(atob(str)));
+  }
+
+  // ===================== 本地存储工具函数 =====================
+  function isDuplicateName(name) {
+    const guests = JSON.parse(localStorage.getItem('birthdayGuests')) || [];
+    return guests.some(item => item.name === name);
+  }
+
+  function saveGuestData(data) {
+    if (isDuplicateName(data.name)) {
+      throw new Error('duplicate');
+    }
+
+    let guests = JSON.parse(localStorage.getItem('birthdayGuests')) || [];
+    guests.push({
+      ...data,
+      isDuplicate: false
+    });
+    localStorage.setItem('birthdayGuests', JSON.stringify(guests));
+    guestData = guests;
+    return true;
+  }
+
+  function loadGuestData() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareData = urlParams.get('guests');
+
+    let allGuests = [];
+    if (shareData) {
+      try {
+        const sharedGuests = JSON.parse(base64ToUtf8(shareData));
+        allGuests = sharedGuests;
+      } catch (e) {
+        console.log('解析分享数据失败:', e);
+      }
+    }
+
+    const localGuests = JSON.parse(localStorage.getItem('birthdayGuests')) || [];
+    allGuests = [...allGuests, ...localGuests];
+
+    const nameMap = new Map();
+    const finalGuests = [];
+
+    allGuests.sort((a, b) => a.time - b.time);
+
+    allGuests.forEach(item => {
+      if (!nameMap.has(item.name)) {
+        nameMap.set(item.name, item);
+        finalGuests.push({
+          ...item,
+          isDuplicate: false
+        });
+      } else {
+        finalGuests.push({
+          ...item,
+          isDuplicate: true
+        });
+      }
+    });
+
+    guestData = finalGuests;
+    localStorage.setItem('birthdayGuests', JSON.stringify(finalGuests));
+    return finalGuests;
+  }
+
+  // ===================== 生成分享链接 =====================
+  function generateShareUrl() {
+    const data = JSON.parse(localStorage.getItem('birthdayGuests')) || [];
+    const dataStr = utf8ToBase64(JSON.stringify(data));
+    const baseUrl = window.location.href.split('?')[0];
+    return `${baseUrl}?guests=${dataStr}`;
+  }
+
+  function copyShareUrl() {
+    // 移动端复制优化
+    navigator.clipboard.writeText(shareUrlEl.textContent).then(() => {
+      alert('链接复制成功！');
+    }).catch(() => {
+      // 降级方案：选中文本让用户手动复制
+      const range = document.createRange();
+      range.selectNode(shareUrlEl);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      alert('自动复制失败，请手动复制链接');
+    });
+  }
+
+  // ===================== 五彩纸屑动画 - 移动端优化 =====================
+  function initConfetti() {
+    const container = document.getElementById('confetti-container');
+    const colors = ['#FF6B8B', '#FFD166', '#06D6A0', '#7928CA', '#FF8C42'];
+
+    // 移动端减少纸屑数量，提升性能
+    const count = window.innerWidth < 768 ? 30 : 50;
+
+    for (let i = 0; i < count; i++) {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      confetti.style.left = `${Math.random() * 100}vw`;
+      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      confetti.style.animationDelay = `${Math.random() * 5}s`;
+      confetti.style.width = `${5 + Math.random() * 8}px`;
+      confetti.style.height = `${5 + Math.random() * 8}px`;
+      container.appendChild(confetti);
+    }
+  }
+
+  // ===================== 初始化地图 - 移动端优化 =====================
+  function initMap() {
+    if (typeof AMap === 'undefined') {
+      document.getElementById('map-container').innerHTML = `
+          <div class="w-full h-full flex items-center justify-center p-4 text-center">
+            <div>
+              <i class="fa fa-map-marker text-4xl text-birthday-pink mb-2"></i>
+              <h3 class="font-bold text-lg">生日派对地点</h3>
+              <p class="text-gray-600">${PARTY_ADDRESS}</p>
+              <p class="text-sm text-gray-500 mt-2">请使用高德地图导航前往</p>
+            </div>
+          </div>
+        `;
+      return;
+    }
+
+    const map = new AMap.Map('map-container', {
+      zoom: 16,
+      center: MAP_COORDINATES,
+      resizeEnable: true,
+      // 移动端地图优化
+      touchZoomCenter: 0,
+      keyboardEnable: false,
+      doubleClickZoom: false
+    });
+
+    const marker = new AMap.Marker({
+      position: MAP_COORDINATES,
+      title: '生日派对地点'
+    });
+    map.add(marker);
+
+    const infoWindow = new AMap.InfoWindow({
+      content: `<div class="font-happy"><h3 class="text-birthday-pink">🎉 生日派对 🎉</h3><p>${PARTY_ADDRESS}</p></div>`,
+      offset: new AMap.Pixel(0, -30)
+    });
+    infoWindow.open(map, marker.getPosition());
+
+    // 移动端点击地图标记重新居中
+    marker.on('click', function() {
+      map.setCenter(MAP_COORDINATES);
+    });
+  }
+
+  // ===================== 音乐控制 - 移动端优化 =====================
+  function initMusicControls() {
+    musicElement.volume = musicVolume;
+    volumeSlider.value = musicVolume;
+
+    // 移动端触摸优化
+    musicToggle.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      musicToggle.click();
+    });
+
+    musicToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isMusicPlaying) {
+        musicElement.pause();
+        musicIcon.className = 'fa fa-music text-2xl';
+        isMusicPlaying = false;
+      } else {
+        // 移动端音频播放优化
+        musicElement.play().catch(() => {
+          // 显示引导用户手动播放的提示
+          alert('🎵 由于浏览器限制，请点击音乐按钮手动播放背景音乐 🎵');
+        });
+        musicIcon.className = 'fa fa-pause text-2xl';
+        isMusicPlaying = true;
+      }
+      volumeSliderContainer.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!musicControls.contains(e.target)) {
+        volumeSliderContainer.classList.add('hidden');
+      }
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+      musicVolume = parseFloat(e.target.value);
+      musicElement.volume = musicVolume;
+    });
+
+    musicElement.addEventListener('play', () => {
+      isMusicPlaying = true;
+      musicIcon.className = 'fa fa-pause text-2xl';
+    });
+
+    musicElement.addEventListener('pause', () => {
+      isMusicPlaying = false;
+      musicIcon.className = 'fa fa-music text-2xl';
+    });
+  }
+
+  // ===================== 加载客人汇总数据 =====================
+  function loadGuestSummary() {
+    try {
+      guestsList.innerHTML = `
+          <div class="p-6 text-center text-gray-500">
+            <i class="fa fa-spinner fa-spin text-xl mb-2"></i>
+            正在加载客人信息...
+          </div>
+        `;
+
+      const guestData = loadGuestData();
+
+      const validGuests = guestData.filter(item => !item.isDuplicate);
+      const totalValidGuests = validGuests.length;
+      const totalValidAttendees = validGuests.reduce((sum, guest) => sum + (guest.count || 1), 0);
+      const totalDuplicates = guestData.filter(item => item.isDuplicate).length;
+
+      document.getElementById('total-guests').style.setProperty('--num', totalValidGuests);
+      document.getElementById('total-attendees').style.setProperty('--num', totalValidAttendees);
+      totalDuplicatesEl.style.setProperty('--num', totalDuplicates);
+
+      if (guestData.length === 0) {
+        guestsList.innerHTML = `
+            <div class="p-6 text-center text-gray-500">
+              暂无客人信息，请等待客人提交...
+            </div>
+          `;
+        return;
+      }
+
+      guestsList.innerHTML = guestData.map((guest, index) => {
+        const duplicateClass = guest.isDuplicate ? 'duplicate-item' : '';
+        const duplicateTag = guest.isDuplicate ? '<span class="text-xs text-red-500 ml-2">(重复提交)</span>' : '';
+
+        return `
+          <div class="p-4 flex justify-between items-center hover:bg-gray-50 transition-all ${duplicateClass}">
+            <div>
+              <p class="font-semibold text-lg text-gray-800">${guest.name}${duplicateTag}</p>
+              <p class="text-gray-500 text-sm">提交时间：${new Date(guest.time).toLocaleString()}</p>
+            </div>
+            <div class="bg-birthday-yellow/20 text-birthday-pink px-3 py-1 rounded-full font-bold">
+              ${guest.count || 1} 人
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (error) {
+      console.error('加载客人数据失败:', error);
+      guestsList.innerHTML = `
+          <div class="p-6 text-center text-red-500">
+            <i class="fa fa-exclamation-circle text-xl mb-2"></i>
+            加载数据失败，请点击刷新重试
+          </div>
+        `;
+    }
+  }
+
+  // ===================== 事件绑定 - 移动端优化 =====================
+  function bindEvents() {
+    // 移动端触摸事件优化
+    function addTouchSupport(btn) {
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        btn.click();
+      });
+    }
+
+    // 客人按钮
+    const guestBtn = document.getElementById('guest-btn');
+    guestBtn.addEventListener('click', () => {
+      identityPage.classList.add('hidden');
+      invitationPage.classList.remove('hidden');
+      musicControls.classList.remove('hidden');
+      initConfetti();
+      initMusicControls();
+      setTimeout(initMap, 100);
+
+      // 移动端延迟播放音乐，提高成功率
+      setTimeout(() => {
+        try {
+          musicToggle.click();
+        } catch (e) {}
+      }, 800);
+    });
+    addTouchSupport(guestBtn);
+
+    // 邀请人按钮
+    const hostBtn = document.getElementById('host-btn');
+    hostBtn.addEventListener('click', () => {
+      passwordForm.classList.toggle('hidden');
+    });
+    addTouchSupport(hostBtn);
+
+    // 密码验证
+    const verifyPassword = document.getElementById('verify-password');
+    verifyPassword.addEventListener('click', () => {
+      const password = document.getElementById('host-password').value;
+      const errorMsg = document.getElementById('password-error');
+
+      if (password === HOST_PASSWORD) {
+        identityPage.classList.add('hidden');
+        summaryPage.classList.remove('hidden');
+        loadGuestSummary();
+      } else {
+        errorMsg.classList.remove('hidden');
+        setTimeout(() => errorMsg.classList.add('hidden'), 3000);
+      }
+    });
+    addTouchSupport(verifyPassword);
+
+    // 出席人数调整 - 移动端优化
+    const decreaseBtn = document.getElementById('decrease-count');
+    decreaseBtn.addEventListener('click', () => {
+      if (attendeeCount > 1) {
+        attendeeCount--;
+        document.getElementById('attendee-count').textContent = attendeeCount;
+      }
+    });
+    addTouchSupport(decreaseBtn);
+
+    const increaseBtn = document.getElementById('increase-count');
+    increaseBtn.addEventListener('click', () => {
+      attendeeCount++;
+      document.getElementById('attendee-count').textContent = attendeeCount;
+    });
+    addTouchSupport(increaseBtn);
+
+    // 提交表单
+    document.getElementById('guest-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const guestName = document.getElementById('guest-name').value.trim();
+      if (!guestName) {
+        alert('请输入您的姓名！');
+        return;
+      }
+
+      submitSuccess.classList.add('hidden');
+      submitDuplicate.classList.add('hidden');
+      submitLoading.classList.remove('hidden');
+
+      try {
+        saveGuestData({
+          name: guestName,
+          count: attendeeCount,
+          time: Date.now()
+        });
+
+        const shareUrl = generateShareUrl();
+        shareUrlEl.textContent = shareUrl;
+
+        submitLoading.classList.add('hidden');
+        submitSuccess.classList.remove('hidden');
+
+        document.getElementById('guest-name').value = '';
+        attendeeCount = 1;
+        document.getElementById('attendee-count').textContent = attendeeCount;
+
+      } catch (error) {
+        submitLoading.classList.add('hidden');
+        if (error.message === 'duplicate') {
+          submitDuplicate.classList.remove('hidden');
+          setTimeout(() => submitDuplicate.classList.add('hidden'), 3000);
+        } else {
+          alert('提交失败：' + error.message);
+        }
+      }
+    });
+
+    // 刷新数据
+    const refreshBtn = document.getElementById('refresh-data');
+    refreshBtn.addEventListener('click', () => {
+      loadGuestSummary();
+    });
+    addTouchSupport(refreshBtn);
+
+    // 返回按钮
+    const backBtn = document.getElementById('back-to-identity');
+    backBtn.addEventListener('click', () => {
+      summaryPage.classList.add('hidden');
+      identityPage.classList.remove('hidden');
+      passwordForm.classList.add('hidden');
+      document.getElementById('host-password').value = '';
+      musicControls.classList.add('hidden');
+
+      if (isMusicPlaying) {
+        musicElement.pause();
+        isMusicPlaying = false;
+        musicIcon.className = 'fa fa-music text-2xl';
+      }
+    });
+    addTouchSupport(backBtn);
+  }
+
+  // ===================== 页面初始化 =====================
+  window.addEventListener('load', () => {
+    // 移动端适配调整
+    if (window.innerWidth < 768) {
+      // 调整移动端样式
+      document.documentElement.style.fontSize = window.innerWidth / 375 * 16 + 'px';
+    }
+
+    bindEvents();
+
+    // 填充配置信息
+    document.querySelectorAll('.text-birthday-purple.animate-pulse-slow').forEach(el => {
+      el.textContent = BIRTHDAY_PERSON;
+    });
+    document.querySelectorAll('h3.text-birthday-pink').forEach(el => {
+      if (el.textContent.includes('寿星：')) {
+        el.textContent = `寿星：${BIRTHDAY_PERSON}`;
+      }
+    });
+    document.querySelectorAll('.text-gray-600').forEach(el => {
+      if (el.textContent.includes('2025年8月18日 晚上18:00')) {
+        el.textContent = PARTY_TIME;
+      }
+      if (el.textContent.includes('幸福路88号 欢乐餐厅 3楼VIP包间')) {
+        el.textContent = PARTY_ADDRESS;
+      }
+    });
+
+    window.copyShareUrl = copyShareUrl;
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', () => {
+      if (typeof AMap !== 'undefined' && document.getElementById('map-container').children.length > 0) {
+        setTimeout(initMap, 100);
+      }
+    });
+  });
+
+  // 移动端返回键处理
+  window.addEventListener('popstate', () => {
+    if (invitationPage.classList.contains('hidden') && summaryPage.classList.contains('hidden')) return;
+
+    if (!summaryPage.classList.contains('hidden')) {
+      summaryPage.classList.add('hidden');
+      identityPage.classList.remove('hidden');
+    } else if (!invitationPage.classList.contains('hidden')) {
+      invitationPage.classList.add('hidden');
+      identityPage.classList.remove('hidden');
+    }
+  });
+</script>
+</body>
+</html>
